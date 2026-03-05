@@ -1,31 +1,43 @@
 # --- Paths ---
 $ExportDir = "$PWD\Exports"
 $CloneBaseDir = "$PWD\Clone"
+$7zPath = "C:\Program Files\7-Zip\7z.exe"
 
-# 1. แสดงรายการโฟลเดอร์ที่เคย Export ไว้
-Write-Host "--- Available Exported VMs ---" -ForegroundColor Magenta
-if (Test-Path $ExportDir) { (Get-ChildItem -Path $ExportDir -Directory).Name }
+# 1. แสดงรายการไฟล์ ZIP ที่เคย Export ไว้
+Write-Host "--- Available Exported VMs (.zip) ---" -ForegroundColor Magenta
+if (Test-Path $ExportDir) { (Get-ChildItem -Path $ExportDir -Filter "*.zip").Name }
 
 # 2. ถามข้อมูล
-$ExportFolderName = Read-Host "Enter the Export folder name to clone from"
+$ZipFileName = Read-Host "Enter the ZIP file name (e.g., VM-Backup.zip)"
 $BaseName = Read-Host "Enter Base Name for new VM (e.g., WIN-SERVER)"
 $CloneCountStr = Read-Host "Enter number of VMs to clone (e.g., 3)"
 
-if ([string]::IsNullOrWhiteSpace($ExportFolderName) -or [string]::IsNullOrWhiteSpace($BaseName) -or [string]::IsNullOrWhiteSpace($CloneCountStr)) { exit }
+if ([string]::IsNullOrWhiteSpace($ZipFileName) -or [string]::IsNullOrWhiteSpace($BaseName) -or [string]::IsNullOrWhiteSpace($CloneCountStr)) { exit }
 $CloneCount = [int]$CloneCountStr
 
-# ค้นหาไฟล์ .vmcx
-$VmcxPath = Get-ChildItem -Path "$ExportDir\$ExportFolderName" -Filter "*.vmcx" -Recurse | Select-Object -ExpandProperty FullName -First 1
+$ZipFilePath = Join-Path $ExportDir $ZipFileName
+if (!(Test-Path $ZipFilePath)) {
+    Write-Host "Error: Cannot find $ZipFilePath" -ForegroundColor Red
+    exit
+}
+
+# สร้างโฟลเดอร์ Temp สำหรับแตกไฟล์
+$TempDir = Join-Path $ExportDir "Temp_$([guid]::NewGuid().ToString().Substring(0,8))"
+Write-Host "Extracting ZIP to temporary folder..." -ForegroundColor Cyan
+& $7zPath x "$ZipFilePath" -o"$TempDir" -y | Out-Null
+
+# ค้นหาไฟล์ .vmcx ในโฟลเดอร์ Temp
+$VmcxPath = Get-ChildItem -Path $TempDir -Filter "*.vmcx" -Recurse | Select-Object -ExpandProperty FullName -First 1
 
 if (!$VmcxPath) {
-    Write-Host "Error: Cannot find .vmcx file in $ExportDir\$ExportFolderName" -ForegroundColor Red
+    Write-Host "Error: Cannot find .vmcx file in extracted folder." -ForegroundColor Red
+    Remove-Item -Path $TempDir -Recurse -Force
     exit
 }
 
 # 3. เริ่ม Loop ตามจำนวนเครื่องที่ระบุ
 for ($count = 1; $count -le $CloneCount; $count++) {
     
-    # ระบบ Auto-Increment ตรวจสอบเลข 01, 02...
     $i = 1
     do {
         $Suffix = $i.ToString("00")
@@ -55,4 +67,6 @@ for ($count = 1; $count -le $CloneCount; $count++) {
     }
 }
 
+# ลบโฟลเดอร์ Temp ทิ้งหลังทำงานเสร็จ
+Remove-Item -Path $TempDir -Recurse -Force
 Write-Host "Done cloning $CloneCount VMs!" -ForegroundColor Green

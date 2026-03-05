@@ -1,5 +1,6 @@
 # --- Set base export path ---
 $BaseExportPath = "$PWD\Exports"
+$7zPath = "C:\Program Files\7-Zip\7z.exe"
 
 # 1. Display all VMs
 Write-Host "--- List of Virtual Machines ---" -ForegroundColor Magenta
@@ -17,28 +18,31 @@ if ([string]::IsNullOrWhiteSpace($VMName)) {
 $TargetVM = Get-VM -Name $VMName -ErrorAction SilentlyContinue
 
 if ($TargetVM) {
-    # Create folder name: VMName-Backup-YYYY-MM-DD (A.D. Format)
     $DateStamp = Get-Date -Format "yyyy-MM-dd"
     $NewFolderName = "${VMName}-Backup-${DateStamp}"
     $FullExportPath = Join-Path $BaseExportPath $NewFolderName
+    $ZipPath = "$FullExportPath.zip"
 
-    # Create destination folder
     if (!(Test-Path $FullExportPath)) {
         New-Item -ItemType Directory -Path $FullExportPath -Force | Out-Null
     }
 
     Write-Host "Exporting VM to: $FullExportPath" -ForegroundColor Cyan
-
     Get-VMDvdDrive -VMName $VMName | Set-VMDvdDrive -Path $null
     
-    # Run Export-VM
+    # Run Export-VM and ZIP
     try {
         Export-VM -Name $VMName -Path $FullExportPath
-        Write-Host "Export completed successfully!" -ForegroundColor Green
+        Write-Host "Zipping files with 7-Zip..." -ForegroundColor Cyan
+        & $7zPath a -tzip "$ZipPath" "$FullExportPath\*" | Out-Null
+        
+        # ลบโฟลเดอร์ที่ยังไม่ zip ทิ้งเพื่อประหยัดพื้นที่
+        Remove-Item -Path $FullExportPath -Recurse -Force
+        Write-Host "Export & ZIP completed successfully!" -ForegroundColor Green
     }
     catch {
-        Write-Host "An error occurred during export: $_" -ForegroundColor Red
+        Write-Host "An error occurred: $_" -ForegroundColor Red
     }
 } else {
-    Write-Host "Error: VM name '$VMName' not found. Please check the name and try again." -ForegroundColor Red
+    Write-Host "Error: VM name '$VMName' not found." -ForegroundColor Red
 }
