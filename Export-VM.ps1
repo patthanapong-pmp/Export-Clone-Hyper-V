@@ -34,7 +34,7 @@ if ($TargetVM) {
     try {
         Export-VM -Name $VMName -Path $FullExportPath
         Write-Host "Zipping files with 7-Zip..." -ForegroundColor Cyan
-        & $7zPath a -tzip "$ZipPath" "$FullExportPath\*" | Out-Null
+        & $7zPath a -tzip "$ZipPath" "$FullExportPath\*" -bsp1
         
         # ลบโฟลเดอร์ที่ยังไม่ zip ทิ้งเพื่อประหยัดพื้นที่
         Remove-Item -Path $FullExportPath -Recurse -Force
