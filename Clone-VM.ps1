@@ -3,6 +3,7 @@ $ExportDir = "$PWD\Exports"
 $CloneBaseDir = "$PWD\Clone"
 $7zPath = "C:\Program Files\7-Zip\7z.exe"
 
+$ProgressPreference = 'Continue'
 # 1. แสดงรายการไฟล์ ZIP ที่เคย Export ไว้
 Write-Host "--- Available Exported VMs (.zip) ---" -ForegroundColor Magenta
 if (Test-Path $ExportDir) { (Get-ChildItem -Path $ExportDir -Filter "*.zip").Name }
@@ -24,7 +25,7 @@ if (!(Test-Path $ZipFilePath)) {
 # สร้างโฟลเดอร์ Temp สำหรับแตกไฟล์
 $TempDir = Join-Path $ExportDir "Temp_$([guid]::NewGuid().ToString().Substring(0,8))"
 Write-Host "Extracting ZIP to temporary folder..." -ForegroundColor Cyan
-& $7zPath x "$ZipFilePath" -o"$TempDir" -y | Out-Null
+& $7zPath x "$ZipFilePath" -o"$TempDir" -y -bsp1 -bso0
 
 # ค้นหาไฟล์ .vmcx ในโฟลเดอร์ Temp
 $VmcxPath = Get-ChildItem -Path $TempDir -Filter "*.vmcx" -Recurse | Select-Object -ExpandProperty FullName -First 1
@@ -52,12 +53,12 @@ for ($count = 1; $count -le $CloneCount; $count++) {
     Write-Host "New VM: $NewVMName" -ForegroundColor Cyan
     
     # 4. สร้างโฟลเดอร์และเริ่ม Clone
-    New-Item -Path "$TargetDir\Virtual Hard Disks" -ItemType Directory -Force | Out-Null
+    New-Item -Path "$TargetDir\Virtual Hard Disks" -ItemType Directory -Force
 
     Import-VM -Path $VmcxPath `
         -Copy -GenerateNewId `
         -VhdDestinationPath "$TargetDir\Virtual Hard Disks" `
-        -VirtualMachinePath "$TargetDir" | Out-Null
+        -VirtualMachinePath "$TargetDir"
 
     # 5. เปลี่ยนชื่อ VM ในระบบ
     $ImportedVM = Get-VM | Where-Object { $_.ConfigurationLocation -like "$TargetDir*" }
